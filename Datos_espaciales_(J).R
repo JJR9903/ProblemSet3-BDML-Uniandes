@@ -38,29 +38,23 @@ add_osm_feature (
    key = "amenity",
     value = "pub")
 
-zonassocial<- mutate()
-  
+##para unir 
+a1 <- c(osmdata_sf (q1), osmdata_sf (q2))
+
+osm1_sf = a1%>%
+  osmdata_sf()
+osm1_sf
+Zonassociales= osm1_sf$osm_points %>% 
+  select(osm_id,amenity) 
+Zonassociales
+
+##########zona financiera ####################
+
 q3 <- opq ("Bogotá Colombia")%>%
   add_osm_feature (
     key = "amenity",
     value = "bank")
 
-##para unir 
-socialzones<- c(osmdata_sf (q1), osmdata_sf (q2))
-
-osm1_sf = q1%>%
-  osmdata_sf()
-osm1_sf
-restaurant= osm1_sf$osm_points %>% 
-  select(osm_id,amenity) 
-restaurant
-
-osm2_sf = q2%>%
-  osmdata_sf()
-osm2_sf
-pub= osm2_sf$osm_points %>% 
-  select(osm_id,amenity) 
-pub
 
 osm3_sf= q3%>%
   osmdata_sf()
@@ -68,6 +62,30 @@ osm3_sf
 bank= osm3_sf$osm_points %>% 
   select(osm_id,amenity) 
 bank
+
+##########Zonas de aprendizaje ####################
+
+q4 <- opq ("Bogotá Colombia") %>%
+  add_osm_feature(
+    key = "amenity",
+    value = "library"
+  ) 
+q5 <- opq ("Bogotá Colombia")%>%
+  add_osm_feature (
+    key = "amenity",
+    value = "school")
+
+##para unir 
+a2 <- c(osmdata_sf (q4), osmdata_sf (q5))
+
+osm4_sf = a2%>%
+  osmdata_sf(a2)
+osm4_sf
+zonasdeaprendizaje= osm4_sf$osm_points %>% 
+  select(osm_id,amenity) 
+zonasdeaprendizaje
+
+
 
 chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
                    featuretype = "boundary:administrative", 
