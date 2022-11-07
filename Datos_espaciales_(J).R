@@ -27,7 +27,7 @@ list <-available_tags("amenity") %>%
   head(1000)
 list
 
-#we neeed restaurants and ¿? 
+#we need restaurants and ¿? 
 q1 <- opq ("Bogotá Colombia") %>%
   add_osm_feature(
     key = "amenity",
@@ -39,14 +39,12 @@ add_osm_feature (
     value = "pub")
 
 ##para unir 
-a1 <- c(osmdata_sf (q1), osmdata_sf (q2))
+a <- c(osmdata_sf (q1), osmdata_sf (q2))
+a
 
-osm1_sf = a1%>%
-  osmdata_sf()
-osm1_sf
-Zonassociales= osm1_sf$osm_points %>% 
+z_sociales= a$osm_points %>% 
   select(osm_id,amenity) 
-Zonassociales
+z_sociales
 
 ##########zona financiera ####################
 
@@ -59,9 +57,9 @@ q3 <- opq ("Bogotá Colombia")%>%
 osm3_sf= q3%>%
   osmdata_sf()
 osm3_sf
-bank= osm3_sf$osm_points %>% 
+z_finan= osm3_sf$osm_points %>% 
   select(osm_id,amenity) 
-bank
+z_finan
 
 ##########Zonas de aprendizaje ####################
 
@@ -75,27 +73,41 @@ q5 <- opq ("Bogotá Colombia")%>%
     key = "amenity",
     value = "school")
 
-##para unir 
 a2 <- c(osmdata_sf (q4), osmdata_sf (q5))
+a2
 
-osm4_sf = a2%>%
-  osmdata_sf(a2)
-osm4_sf
-zonasdeaprendizaje= osm4_sf$osm_points %>% 
+z_aprendizajein= a2$osm_points %>% 
   select(osm_id,amenity) 
-zonasdeaprendizaje
+
+z_aprendizajein
+
+gc()
+
+####Universidades####
+
+q4 <- opq ("Medellin Colombia") opq ("Bogota Colombia")%>%
+  add_osm_feature (
+    key = "amenity",
+    value = "university")
 
 
+osm4_sf= q4%>%
+  osmdata_sf()
+osm4_sf
+z_uni= osm4_sf$osm_points %>% 
+  select(osm_id,amenity) 
+z_uni
 
-chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
-                   featuretype = "boundary:administrative", 
-                   format_out = "sf_polygon") %>% .$multipolygon
-leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
+
+#chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
+ #                  featuretype = "boundary:administrative", 
+  #                 format_out = "sf_polygon") %>% .$multipolygon
+#leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
 
 
-parques <- opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
-  add_osm_feature(key = "amenity", value = "bank") %>%
-  osmdata_sf() %>% .$osm_polygons %>% select(osm_id,name)
+#parques <- opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
+ # add_osm_feature(key = "amenity", value = "bank") %>%
+  #osmdata_sf() %>% .$osm_polygons %>% select(osm_id,name)
 
-leaflet() %>% addTiles() %>% addPolygons(data=parques)
+#leaflet() %>% addTiles() %>% addPolygons(data=parques)
 
