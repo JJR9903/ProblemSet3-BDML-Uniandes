@@ -1,3 +1,5 @@
+#Problem set 3 
+
 rm (list= ls())
 library(pacman)
 p_load(rstudioapi, tidyverse, sf, rio, osmdata,leaflet, skimr)
@@ -5,15 +7,20 @@ path<- dirname(getActiveDocumentContext()$path)
 setwd(path) 
 dir()
 
+##Importar base 
+
 house <- import("stores/dataPS3/train.rds")
-class(house)
-skim(house)
 house <- st_as_sf(x = house, ## datos
                   coords=c("lon","lat"), ## coordenadas
                   crs=4326) ## CRS
 
 st_geometry(house)
 
+##Descriptivas 
+class(house)
+skim(house)
+
+  ####CREACIÓN DE VARIABLES ESPACIALES 
 
 #####Lista de items 
 list <-available_tags("amenity") %>% 
@@ -31,13 +38,46 @@ add_osm_feature (
    key = "amenity",
     value = "pub")
 
+zonassocial<- mutate()
+  
+q3 <- opq ("Bogotá Colombia")%>%
+  add_osm_feature (
+    key = "amenity",
+    value = "bank")
 
+##para unir 
+socialzones<- c(osmdata_sf (q1), osmdata_sf (q2))
 
-osm_sf = q1%>%
+osm1_sf = q1%>%
   osmdata_sf()
-osm_sf
-socialzone= osm_sf$osm_points %>% 
+osm1_sf
+restaurant= osm1_sf$osm_points %>% 
   select(osm_id,amenity) 
-socialzone
+restaurant
 
+osm2_sf = q2%>%
+  osmdata_sf()
+osm2_sf
+pub= osm2_sf$osm_points %>% 
+  select(osm_id,amenity) 
+pub
+
+osm3_sf= q3%>%
+  osmdata_sf()
+osm3_sf
+bank= osm3_sf$osm_points %>% 
+  select(osm_id,amenity) 
+bank
+
+chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
+                   featuretype = "boundary:administrative", 
+                   format_out = "sf_polygon") %>% .$multipolygon
+leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
+
+
+parques <- opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
+  add_osm_feature(key = "amenity", value = "bank") %>%
+  osmdata_sf() %>% .$osm_polygons %>% select(osm_id,name)
+
+leaflet() %>% addTiles() %>% addPolygons(data=parques)
 
