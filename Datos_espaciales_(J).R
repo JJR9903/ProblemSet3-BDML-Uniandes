@@ -18,14 +18,16 @@ st_geometry(house)
 
 ##Descriptivas 
 class(house)
-skim(house)
+  #skim(house)
 
   ####CREACIÓN DE VARIABLES ESPACIALES 
 
 #####Lista de items 
-list <-available_tags("amenity") %>% 
+list <-available_tags("leisure") %>% 
   head(1000)
 list
+
+
 
 #we need restaurants and ¿? 
 q1 <- opq ("Bogotá Colombia") %>%
@@ -85,29 +87,121 @@ gc()
 
 ####Universidades####
 
-q4 <- opq ("Medellin Colombia") opq ("Bogota Colombia")%>%
+q4 <- opq ("Bogota Colombia")%>%
   add_osm_feature (
     key = "amenity",
-    value = "university")
+    value = "swingerclub")
 
 
 osm4_sf= q4%>%
   osmdata_sf()
 osm4_sf
-z_uni= osm4_sf$osm_points %>% 
+swinger= osm4_sf$osm_points %>% 
   select(osm_id,amenity) 
-z_uni
+swinger
 
 
 #chapinero <- getbb(place_name = "UPZ Chapinero, Bogota", 
  #                  featuretype = "boundary:administrative", 
   #                 format_out = "sf_polygon") %>% .$multipolygon
-#leaflet() %>% addTiles() %>% addPolygons(data=chapinero)
-
+leaflet() %>% addTiles() %>% addPolygons(data=z_uni)
+leaflet() %>% addTiles() %>% addCircleMarkers(data=swinger , col="red")
 
 #parques <- opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
  # add_osm_feature(key = "amenity", value = "bank") %>%
   #osmdata_sf() %>% .$osm_polygons %>% select(osm_id,name)
 
 #leaflet() %>% addTiles() %>% addPolygons(data=parques)
+
+zonas<-function (city, zone){
+  b<-list()
+  
+  return(b)
+}
+
+a<-zonas("Bogotá",c("bank", "university", "restaurant","veterinary", "Pub", "marketplace", "hospital", "clinic", "pharmacy", "prision", "bar", "cafe", "college","nightclub"  ))
+
+city<- ("Bogotá") 
+zone<- c("bank", "university", "restaurant","veterinary", "pub", "marketplace", "hospital", "clinic", "pharmacy", "prison", "bar", "cafe", "college","nightclub","school","library","bus_station","kindergarten","waste_disposal")
+base<-data.frame()
+
+for (i in 1:length(zone)){
+al <- opq (paste0(city," Colombia"))%>%
+  add_osm_feature (
+    key = "amenity",
+    value = zone[i])
+osm_al= al%>%
+  osmdata_sf()
+osm_al2<-osm_al$osm_points%>% 
+  select(osm_id,amenity) 
+assign(paste0("osm_al_",zone[i]),osm_al2)
+
+
+}  
+
+
+##Arreglar bases
+#comida
+osm_al_bar<-osm_al_bar%>%
+  mutate(amenity="comida")
+osm_al_cafe<-osm_al_cafe%>%
+  mutate(amenity="comida")
+osm_al_pub<-osm_al_pub%>%
+  mutate(amenity="comida")
+osm_al_restaurant<-osm_al_restaurant%>%
+  mutate(amenity="comida")
+#salud
+osm_al_clinic<-osm_al_clinic%>%
+  mutate(amenity="salud")
+osm_al_hospital<-osm_al_hospital%>%
+  mutate(amenity="salud")
+#educacion superior
+osm_al_college<-osm_al_college%>%
+  mutate(amenity="E Superior")
+osm_al_university<-osm_al_university%>%
+  mutate(amenity="E Superior")
+#educación 
+osm_al_kindergarten<-osm_al_kindergarten%>%
+  mutate(amenity="Educacion")
+osm_al_school<-osm_al_school%>%
+  mutate(amenity="Educacion")
+osm_al_library<-osm_al_library%>%
+  mutate(amenity="Educacion")
+#depre
+osm_al_nightclub<-osm_al_nightclub%>%
+  mutate(amenity="")
+osm_al_<-osm_al_%>%
+  mutate(amenity="")
+osm_al_<-osm_al_%>%
+  mutate(amenity="")
+osm_al_<-osm_al_%>%
+  mutate(amenity="")
+osm_al_<-osm_al_%>%
+  mutate(amenity="")
+osm_al_<-osm_al_%>%
+  mutate(amenity="")
+
+
+
+
+
+parse("b")
+
+b=list()
+
+
+al <- opq (paste0(city," Colombia"))%>%
+  add_osm_feature (
+    key = "amenity",
+    value = zone[i])
+osm_al= al%>%
+  osmdata_sf()
+parse(paste0("osm_al_",zone[i]))<-osm_al$osm_points%>% 
+  select(osm_id,amenity) 
+base<-data.frame()
+for (i in 1:length(zone)){
+  base<-bind_rows(base,parse(paste0("osm_al_",zone[i])))
+  }
+return(base)
+
 
