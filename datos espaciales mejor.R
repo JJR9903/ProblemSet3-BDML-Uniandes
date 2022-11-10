@@ -24,6 +24,12 @@ dir_set <- function(){
 dir_set()
 library(pacman)
 p_load(rstudioapi, tidyverse, sf, rio, osmdata,leaflet, skimr)
+p_load(tidyverse,rio,skimr,viridis,osmdata,
+       ggsn, ## scale bar
+       raster,stars, ## datos raster
+       ggmap, ## get_stamenmap
+       sf, ## Leer/escribir/manipular datos espaciales
+       leaflet) ## Visualizaciones dinámicas
 path<- dirname(getActiveDocumentContext()$path)
 setwd(path) 
 dir()
@@ -471,15 +477,19 @@ bog <- opq(bbox=getbb("Bogota,Colombia")) %>%
 bog<-bog$osm_multipolygonos %>% 
   subset(admin_level==9)
 
-B_MB_b <- st_intersection(x=B_MB y= bog)
+B_MB_b <- st_intersection(x=B_MB, y= bog)
 saveRDS(B_MB_b,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
-          select()
+
+##Pegue
+B_MB<-B_MB%>%
+  select(osm_id,name)
+
 
        
-        
-B_MB_m <- st_intersection(x=B_MB y= med)
+B_MB_m <- st_intersection(x=B_MB, y= med)
 saveRDS(B_MB_m,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
           select()
+        
         
   
 #####NWECESITO AYUDA 
