@@ -454,18 +454,36 @@ B_MB<-bind_rows(B_Medellin,B_Bogota)
 
 saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_mb.rds"))
 
+#####SACAR MEDELLIN Y BOGOTÁ ####
 
-###TOCA agregar los barrios 
+med <- opq(bbox=getbb("Medellin,Colombia")) %>%
+  add_osm_feature(key="boundary", value= "administrative")%>%
+  osmdat_sf()
 
-  ##Para sacar barrios de Bogotá
-bog <- opq(bbox = getbb("Bogota Colombia")) %>%
-  add_osm_feature(key="boundary", value="administrative") %>% 
-  osmdata_sf()
-bog <- bog$osm_multipolygons %>% subset(admin_level==9)
+med<-med$osm_multipolygonos %>% 
+  subset(admin_level==8)
 
 
-for (i in 1:length(zone)){
- assign( paste0("osm_al_",zone[1]),)
-}
-assign(paste0("osm_al_",zone[i]),osm_al2)
+bog <- opq(bbox=getbb("Bogota,Colombia")) %>%
+  add_osm_feature(key="boundary", value= "administrative")%>%
+  osmdat_sf()
 
+bog<-bog$osm_multipolygonos %>% 
+  subset(admin_level==9)
+
+B_MB_b <- st_intersection(x=B_MB y= bog)
+saveRDS(B_MB_b,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
+          select()
+
+       
+        
+B_MB_m <- st_intersection(x=B_MB y= med)
+saveRDS(B_MB_m,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
+          select()
+        
+  
+#####NWECESITO AYUDA 
+
+##### PEGER  B_MB_b Y B_MB_m CON B_MB #####
+        
+                
