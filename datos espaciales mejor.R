@@ -264,7 +264,7 @@ dir_set <- function(){
   }
 }
 
-
+##### LIMPIAR Y REZAR PARA QUE NO SE PUTEE
 dir_set()
 library(pacman)
 p_load(rstudioapi, tidyverse, sf, rio, osmdata,leaflet, skimr)
