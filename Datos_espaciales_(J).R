@@ -42,10 +42,13 @@ add_osm_feature (
 
 ##para unir 
 a <- c(osmdata_sf (q1), osmdata_sf (q2))
+
 a
 
+cway_sev <- osmdata_sp(q1)
+sp::plot(cway_sev$osm_points)
 z_sociales= a$osm_points %>% 
-  select(osm_id,amenity) 
+  select(osm_id,amenity)
 z_sociales
 
 ##########zona financiera ####################
@@ -75,7 +78,8 @@ q5 <- opq ("Bogotá Colombia")%>%
     key = "amenity",
     value = "school")
 
-a2 <- c(osmdata_sf (q4), osmdata_sf (q5))
+a2 <- c(osmdata_sf (q4), osmdata_sf (q5)) %>% 
+  select(osm_id,amenity) 
 a2
 
 z_aprendizajein= a2$osm_points %>% 
@@ -86,6 +90,7 @@ z_aprendizajein
 gc()
 
 ####Universidades####
+
 
 q4 <- opq ("Bogota Colombia")%>%
   add_osm_feature (
@@ -105,7 +110,7 @@ swinger
  #                  featuretype = "boundary:administrative", 
   #                 format_out = "sf_polygon") %>% .$multipolygon
 leaflet() %>% addTiles() %>% addPolygons(data=z_uni)
-leaflet() %>% addTiles() %>% addCircleMarkers(data=swinger , col="red")
+leaflet() %>% addTiles() %>% addCircleMarkers(data=a, col="red")
 
 #parques <- opq(bbox = getbb("UPZ Chapinero, Bogota")) %>%
  # add_osm_feature(key = "amenity", value = "bank") %>%
@@ -204,4 +209,49 @@ for (i in 1:length(zone)){
   }
 return(base)
 
+osmdata_sf()
 
+bici <- getbb("Cali Colombia")%>%
+  opq()%>%
+  add_osm_feature(key = "highway", 
+                  value = c("cycleway")) %>%
+  osmdata_sf()
+
+
+ggplot() +
+  geom_sf(data = calles$osm_lines,
+          inherit.aes = FALSE,
+          color = "grey30",
+          size = .4,
+          alpha = .8) +
+  geom_sf(data = bici$osm_lines,
+          inherit.aes = FALSE,
+          color = "springgreen",
+          size = .4,
+          alpha = .6) +
+  #coord_sf(xlim = c(-0.98, -0.8), 
+   #        ylim = c(41.6, 41.7),
+    #       expand = FALSE)
+#+
+  theme_void() +
+  labs(title = "cali",
+       subtitle = "Carriles bici") +
+  theme(plot.background = element_rect(fill = "black"),
+        plot.title = element_text(colour = "white"),
+        plot.subtitle= element_text(colour = "white"))
+
+
+ggplot() +
+  geom_sf(data = Bogota,
+          inherit.aes = FALSE,
+          color = "darkgrey",
+          size = .3,
+          alpha = .8)
+
+
++
+  coord_sf(xlim = c(-0.98, -0.8), 
+           ylim = c(41.6, 41.7),
+           expand = FALSE) +
+  theme_void() +
+  labs(title = "Calí")
