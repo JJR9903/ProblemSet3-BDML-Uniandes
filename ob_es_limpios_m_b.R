@@ -20,8 +20,7 @@ dir_set <- function(){
   }
 }
 
-
-dir_set()
+if(!require(pacman)) install.packages("pacman") ; require(pacman)
 require(pacman)
 p_load(rstudioapi, tidyverse, sf, rio, osmdata,leaflet, skimr)
 p_load(tidyverse,rio,skimr,viridis,osmdata,
@@ -360,19 +359,18 @@ saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_mb.rds"))
 
 #####SACAR MEDELLIN Y BOGOTÁ ####
 
-bog<-st_read(file.path(stores,"Bogota/barrios_catastrales/barrios_catastrales.shp"))%>%
+bog<-st_read(file.path("stores/Bogota/barrios_catastrales/barrios_catastrales.shp"))%>%
   st_transform(crs = 4326)
 
-med<-st_read(file.path(stores,"Medellin/planeacion_gdb/planeacion_gdb.shp"))%>%
+med<-st_read(file.path("stores/Medellin/planeacion_gdb/planeacion_gdb.shp"))%>%
   st_transform(crs = 4326)
 
 
 ##### PONER LOS PUNTOS EN LOS BARRIOS ####
 ###BOG 
-B_MB_b <- st_intersection(x=B_MB, y= bog)
+B_MB_b <- st_intersection(x=osm_al_fitness_station, y= bog)
 saveRDS(B_MB_b,file=paste0(getwd(),"/stores/B_MB_b.rds"))
-
-B_MB_B<-bind_rows(B_MB,B_MB_b)
+leaflet() %>% addTiles() %>% addPolygons(data=bog)
 
 ###MED
 B_MB_m <- st_intersection(x=B_MB, y= med)
