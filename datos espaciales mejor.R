@@ -264,7 +264,6 @@ for (i in 1:length(zone)){
   assign(paste0("osm_al_",zone[i]),osm_al2)
 }  
 
-
 #####Con leisure
 zone2<- c("park", "fitness_centre" ,"sports_centre", "fitness_station", "garden", "swimming_pool", "dog_park", "sports_centre")
 base<-data.frame()
@@ -402,10 +401,8 @@ B_Medellin<-bind_rows(B_Medellin,osm_al_waste_disposal)
 B_Medellin$city<-"medellin"
 
 #rename(B_Medellin,  leisure=amenity)
-rename  (B_Medellin, Shape_Leng=SHAPE__Len)
-rename  (B_Medellin, Shape_Area=SHAPE__Are)
-rename  (B_Medellin,  NOMBRE=)
-
+B_Medellin <- B_Medellin %>%
+  rename(Shape_Area=SHAPE__Are,Shape_Leng=SHAPE__Len)
 
 saveRDS(B_Medellin,file=paste0(getwd(),"/stores/medellin.rds"))
 
@@ -419,5 +416,27 @@ B_MB<-bind_rows(B_Medellin,B_Bogota)
 
 saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_mb.rds"))
 
-Base_espacial = subset (B_MB, select=c(osm_id, amenity,  OBJECTID, CODIGO,  NOMBRE, IDENTIFICA, LIMITECOMU, LIMITEMUNI, SUBTIPO_BA, SHAPE__Are, SHAPE__Len, leisure, city,  geometry))
+Base_espacial = subset (B_MB, select=c(osm_id, amenity, BAR_ID,  CODIGO,  NOMBRE,  Shape_Area, Shape_Leng, leisure, city,  geometry))
 saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_esp.rds"))
+
+Base_espacial$amenitys<- NA
+
+Base_espacial$amenitys<-if Base_espacial$amenity == is.na())  leisure
+    
+    {
+    amenitys=c("Base_espacial$leisure")
+  } else {
+    amenitys=c("Base_espacial$amenity")
+  }
+}
+
+
+Base_espacial$amenitys {
+  if(Base_espacial$amenity == is.na()) {
+    amenitys=c("Base_espacial$leisure")
+  } else {
+    amenitys=c("Base_espacial$amenity")
+  }
+}
+  
+)
