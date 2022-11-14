@@ -1,0 +1,655 @@
+## Autores: Juan José Rincón , Juan Andres Ospina, Juanita Chacón 
+## Descripción: Desarrollo 2 problem set /Big Data and Machine Leanring for applied economics
+## Universidad de los Andes 2022-2
+## Creation Date: 14/09/2022
+#### setting the work space ####################################
+
+rm(list=ls())
+
+# este setwd por ahora no esta funcionando, toca que cada uno lo haga independiente mientras logro que funcione. att: Juan Jose
+dir_set <- function(){
+  if(Sys.info()["user"]=="JuanJose"){
+    setwd("/Users/JuanJose/Library/CloudStorage/OneDrive-UniversidaddelosAndes/Uniandes/9 Semestre - 1 PEG/Big Data/Problems Set/Problem-set2-BigData-ML-Uniandes")
+  }
+  else if(Sys.info()["user"]=="PC-PORTATIL"){
+    setwd("C:/Users/PC-PORTATIL/OneDrive/Documentos/GitHub/Problem-set2-BigData-ML-Uniandes")
+  }
+  else if(Sys.info()["user"]=="juan.rincon"){
+    setwd("C:/Users/juan.rincon/OneDrive - Universidad de los Andes/Uniandes/9 Semestre - 1 PEG/Big Data/Problems Set/Problem-set2-BigData-ML-Uniandes")
+  }
+  else{
+    setwd("C:/Users/Usuario/Documents/GitHub/Problem-set2-BigData-ML-Uniandes")
+  }
+}
+
+dir_set()
+
+pacman:: p_load(tidyverse,stargazer,caret,tidymodels,glmnet,parallel,doParallel,MLmetrics,themis,rattle,rlang,randomForest,mlr,rpart,rpart.plot,kableExtra)
+
+set.seed(1234)
+n_cores<-detectCores()
+cl <- makePSOCKcluster(n_cores - 1) 
+registerDoParallel(cl)
+
+
+train_hogares <- readRDS("stores/train_hogares_full.Rds")
+
+
+###edada al cuadrado 
+
+train_hogares$JH_Edad2<-(train_hogares$JH_Edad)^2
+
+###################### ENTRENAMIENTO DE LOS MODELOS ############################
+#hay que modificar esta con las nuevas variables 
+Train<-model.matrix(object = ~ Ingtotugarr + Lp + Pobre+Npersug + Clase + P5010 + P5090 + P5100 + P5130 + P5140 + 
+                       + Ingresos_AlquilerPensiones + JH_Edad + JH_Edad2 + AyudasEco + Subsidios+
+                      TGP+ tasa_desempleo + P_o + JH_Mujer + JH_Edad +JH_RSS_S + JH_NEduc +  JH_CotizaPension + 
+                       JH_Oc +  JH_Ina-1,data=train_hogares)
+
+
+Train_y<-Train[,c('Lp','Pobre','Ingtotugarr')]
+Train_x<-Train[,!colnames(Train) %in% c('Lp','Pobre','Ingtotugarr')]
+
+
+######################  DEFINICION DE METRICAS DE MEDICION MODELOS ############################
+
+
+False_rate_reg <- function (data, lev = NULL, model = NULL) {
+  
+  FR <-function(pred,obs,Lp,P){#FR = FNR*0.75 + FPR*0.25 = (fn/(fn+tp)*0.75)+(fp/(fp+tn)*0.25)
+    P_pred=ifelse(pred<=Lp,1,0)
+    if(length(unique(P))==length(unique(P_pred))){ #FR
+      ((table(P_pred,P)['0','1']/(table(P_pred,P)['0','1']+table(P_pred,P)['1','1']))*0.75)+
+        ((table(P_pred,P)['1','0']/(table(P_pred,P)['1','0']+table(P_pred,P)['0','0']))*0.25)
+    } else if (length(unique(P_pred))==2 & length(unique(P))==1){
+      if (unique(P)==0){#FPR
+        ((table(P_pred,P)['1','0']/(table(P_pred,P)['1','0']+table(P_pred,P)['0','0']))*0.25)
+      } else if (unique(P)==1){#FNR
+        ((table(P_pred,P)['0','1']/(table(P_pred,P)['0','1']+table(P_pred,P)['1','1']))*0.75)
+      } else if (length(unique(P_pred))==1 & length(unique(P))==2){
+        if (unique(P_pred)==0){#FNR
+          (table(P_pred,P)['0','1']/(table(P_pred,P)['0','1'])*0.75)
+        } else if (unique(P_pred)==1){#FPR
+          (table(P_pred,P)['1','0']/(table(P_pred,P)['1','0'])*0.25)  
+        }
+      }
+    }
+  }
+  
+  FPR <- function (pred,obs,Lp,P){ #FPR = fp/(fp+tn)
+    P_pred=ifelse(pred<=Lp,1,0)
+    if(length(unique(P))==length(unique(P_pred))){ #FPR
+      (table(P_pred,P)['1','0']/(table(P_pred,P)['1','0']+table(P_pred,P)['0','0']))
+    } else if (length(unique(P_pred))==2 & length(unique(P))==1){
+      if (unique(P)==0){#FPR
+        (table(P_pred,P)['1','0']/(table(P_pred,P)['1','0']+table(P_pred,P)['0','0']))
+      } else if (unique(P)==1){#FNR
+      } else if (length(unique(P_pred))==1 & length(unique(P))==2){
+        if (unique(P_pred)==0){#FNR
+        } else if (unique(P_pred)==1){#FPR
+          (table(P_pred,P)['1','0']/(table(P_pred,P)['1','0']))
+        }
+      }
+    }
+  }
+  
+  FNR <- function (pred,obs,Lp,P){ #FNR = fn/(fn+tp)
+    P_pred=ifelse(pred<=Lp,1,0)
+    if(length(unique(P))==length(unique(P_pred))){ #FNR
+      table(P_pred,P)['0','1']/(table(P_pred,P)['0','1']+table(P_pred,P)['1','1'])
+    } else if (length(unique(P_pred))==2 & length(unique(P))==1){
+      if (unique(P)==0){#FPR
+      } else if (unique(P)==1){#FNR
+        ((table(P_pred,P)['0','1']/(table(P_pred,P)['0','1']+table(P_pred,P)['1','1']))*0.75)
+      } else if (length(unique(P_pred))==1 & length(unique(P))==2){
+        if (unique(P_pred)==0){#FNR
+          table(P_pred,P)['0','1']/(table(P_pred,P)['0','1'])
+        } else if (unique(P_pred)==1){#FPR
+        }
+      }
+    }
+  }
+  
+  w<-FR(pred = data$pred ,obs = data$obs ,Lp = data$Lp, P = data$Pobre)
+  
+  fp<-FPR(pred = data$pred ,obs = data$obs ,Lp = data$Lp, P = data$Pobre)
+  
+  fn<-FNR(pred = data$pred ,obs = data$obs ,Lp = data$Lp, P = data$Pobre)
+  
+  c(FR = w, FNR = fn, FPR = fp)
+}
+
+False_rate_class <- function (data, lev = c('NoPobre','Pobre'), model = NULL) {
+  
+  FR <-function(pred,P){#FR = FNR*0.75 + FPR*0.25 = (fn/(fn+tp)*0.75)+(fp/(fp+tn)*0.25)
+    if(length(unique(P))==length(unique(pred))){ #FR
+      ((table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre']+table(pred,P)['Pobre','Pobre']))*0.75)+
+        ((table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre']+table(pred,P)['NoPobre','NoPobre']))*0.25)
+    } else if (length(unique(pred))==2 & length(unique(P))==Pobre){
+      if (unique(P)==0){#FPR
+        ((table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre']+table(pred,P)['NoPobre','NoPobre']))*0.25)
+      } else if (unique(P)==1){#FNR
+        ((table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre']+table(pred,P)['Pobre','Pobre']))*0.75)
+      } else if (length(unique(pred))==1 & length(unique(P))==2){
+        if (unique(pred)==0){#FNR
+          (table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre'])*0.75)
+        } else if (unique(pred)==1){#FPR
+          (table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre'])*0.25)  
+        }
+      }
+    }
+  }
+  
+  FPR <- function (pred,P){ #FPR = fp/(fp+tn)
+    if(length(unique(P))==length(unique(pred))){ #FPR
+      (table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre']+table(pred,P)['NoPobre','NoPobre']))
+    } else if (length(unique(pred))==2 & length(unique(P))==1){
+      if (unique(P)==0){#FPR
+        (table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre']+table(pred,P)['NoPobre','NoPobre']))
+      } else if (unique(P)==1){#FNR
+      } else if (length(unique(pred))==1 & length(unique(P))==2){
+        if (unique(pred)==0){#FNR
+        } else if (unique(pred)==1){#FPR
+          (table(pred,P)['Pobre','NoPobre']/(table(pred,P)['Pobre','NoPobre']))
+        }
+      }
+    }
+  }
+  
+  FNR <- function (pred,P){ #FNR = fn/(fn+tp)
+    if(length(unique(P))==length(unique(pred))){ #FNR
+      table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre']+table(pred,P)['Pobre','Pobre'])
+    } else if (length(unique(pred))==2 & length(unique(P))==1){
+      if (unique(P)==0){#FPR
+      } else if (unique(P)==1){#FNR
+        ((table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre']+table(pred,P)['Pobre','Pobre']))*0.75)
+      } else if (length(unique(pred))==1 & length(unique(P))==2){
+        if (unique(pred)==0){#FNR
+          table(pred,P)['NoPobre','Pobre']/(table(pred,P)['NoPobre','Pobre'])
+        } else if (unique(pred)==1){#FPR
+        }
+      }
+    }
+  }
+  
+  w<-FR(pred = data$pred, P = data$obs)
+  
+  fp<-FPR(pred = data$pred, P = data$obs)
+  
+  fn<-FNR(pred = data$pred, P = data$obs)
+  
+  c(FR = w, FNR = fn, FPR = fp)
+}
+
+########### PREDICCIÓN INGRESO ##########
+Train<-model.matrix(object = ~ as.factor(Clase)+P5000+P5010+as.factor(P5090)+P5100+P5130+P5140+Npersug+Ingtotug+Ingtotugarr+Lp+Pobre+as.factor(Depto)+                
+                      Subsidios+CotizaPension+Pensionado+Ingresos_AlquilerPensiones+OtrosIngresos+AyudasEco+TGP+P_o+tasa_desempleo+JH_Mujer+JH_RSS_S+ 
+                      JH_NEduc+JH_CotizaPension+JH_Pensionado +JH_Oc+JH_Des+JH_Ina ,data=train_hogares)
+          
+
+
+
+train<-as.data.frame(Train)
+Train_reg_recipe<- recipe(Ingtotugarr ~ ., data = train)%>%
+  add_role(Lp, new_role = "performance var")%>%
+  add_role(Pobre, new_role = "performance var")
+
+Train_y<-Train[,c('Lp','Pobre','Ingtotugarr')]
+Train_x<-Train[,!colnames(Train) %in% c('Lp','Pobre','Ingtotugarr')]
+##### Lasso #####
+set.seed(1234)
+registerDoParallel(cl)
+lasso<-glmnet(x=Train_x,y=Train_y[,'Ingtotugarr'],alpha=1,nlambda=100,standarize=F)
+lambdas<-lasso[["lambda"]]
+Lasso_CV <-caret::train( Train_reg_recipe, train, method = "glmnet", trControl = trainControl(method = "cv", number = 10 ,savePredictions = 'none',verboseIter=T,summaryFunction = False_rate_reg),metric="FR",maximaize= FALSE, tuneGrid = expand.grid(alpha = 1,lambda=lambdas))
+
+
+metricas_HyperP_l <- data.frame(Modelo = "Lasso", 
+                                "lambda" = Lasso_CV[["bestTune"]][["lambda"]], 
+                                "alpha" = Lasso_CV[["bestTune"]][["alpha"]],
+                                "FNR" = mean(Lasso_CV[["results"]][["FNR"]]),
+                                "FPR" = mean(Lasso_CV[["results"]][["FPR"]]),
+                                "FR" = mean(Lasso_CV[["results"]][["FR"]])   )
+
+
+#variables del modelo de lasso 
+lasso<-glmnet(x=Train_x, y=Train_y[,'Ingtotugarr'], alpha=1, lambda= Lasso_CV[["bestTune"]][["lambda"]], standarize=F,intercept = F)
+Betas<-coef(lasso,  exact = FALSE,x=x, y=y)
+Betas<-Betas@Dimnames[[1]][which(Betas!= 0)]
+Betas=Betas[Betas!='(Intercept)']
+ 
+stargazer(metricas_HyperP_l,type="text",summary=F,out = "/stores/views/LassoReg.txt")
+
+
+metricas_HyperP_l%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+
+betas <- sapply(Betas, function(i) { paste0(i, "+") })
+betas <- paste(betas, collapse = '')
+betas  <- substr(betas, 1, nchar(betas)-1)
+
+model_Ing_lasso<-formula(paste0("Ingtotugarr~","Lp+Pobre+",betas))
+Train_xlasso<-Train_x[,Betas]    
+rm(betas,Betas,lambdas,lasso,Lasso_CV) 
+
+
+
+##### Ridge #####
+set.seed(1234)
+Ridge<-glmnet(x=Train_x, y=Train_y[,'Ingtotugarr'],alpha=0,nlambda=100,standarize=F)
+lambdas<-Ridge[["lambda"]]
+Ridge_CV <-caret::train( Train_reg_recipe, train, method = "glmnet", trControl = trainControl(method = "cv", number = 10 ,savePredictions = 'none',verboseIter=T,summaryFunction = False_rate_reg),metric="FR",maximaize= FALSE, tuneGrid = expand.grid(alpha = 0,lambda=lambdas))
+
+metricas_HyperP_r <- data.frame(Modelo = "Ridge", 
+                                "lambda" = Ridge_CV[["bestTune"]][["lambda"]], 
+                                "alpha" = Ridge_CV[["bestTune"]][["alpha"]],
+                                "FNR" = mean(Ridge_CV[["results"]][["FNR"]]),
+                                "FPR" = mean(Ridge_CV[["results"]][["FPR"]]),
+                                "FR" = mean(Ridge_CV[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_r,type="text",summary=F,out = "views/RidgeReg.txt")
+
+metricas_HyperP_r%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_r)
+
+rm(lambdas,Ridge,Ridge_CV) 
+
+
+
+### variables regularizacion lasso
+Train_l<-model.matrix(object = ~ Clase+ P5000+P5010+Npersug+OtrosIngresos+JH_RSS_S+JH_Oc+JH_Ina+Ingtotugarr+Lp+Pobre ,data=train_hogares)
+
+train_l<-as.data.frame(Train_l)
+Train_lasso_reg_recipe<- recipe(Ingtotugarr ~ ., data = train_l)%>%
+  add_role(Lp, new_role = "performance var")%>%
+  add_role(Pobre, new_role = "performance var")
+
+Train_yl<-train_l[,c('Lp','Pobre','Ingtotugarr')]
+Train_xl<-train_l[,!colnames(train_l) %in% c('Lp','Pobre','Ingtotugarr')]
+
+
+##### Ridge con lasso variables #####
+set.seed(1234)
+Ridge<-glmnet(x=Train_xl,y=Train_yl[,'Ingtotugarr'],alpha=0,nlambda=100,standarize=F)
+lambdas<-Ridge[["lambda"]]
+Ridge_CV <-caret::train( Train_lasso_reg_recipe, train_l, method = "glmnet", trControl = trainControl(method = "cv", number = 10 ,savePredictions = 'none',verboseIter=T,summaryFunction = False_rate_reg),metric="FR",maximaize= FALSE, tuneGrid = expand.grid(alpha = 0,lambda=lambdas))
+
+metricas_HyperP_rl <- data.frame(Modelo = "Ridge - lasso variables", 
+                                 "lambda" = Ridge_CV[["bestTune"]][["lambda"]], 
+                                 "alpha" = Ridge_CV[["bestTune"]][["alpha"]],
+                                 "FNR" = mean(Ridge_CV[["results"]][["FNR"]]),
+                                 "FPR" = mean(Ridge_CV[["results"]][["FPR"]]),
+                                 "FR" = mean(Ridge_CV[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_rl,type="text",summary=F,out = "views/RidgeLasso_Reg.txt")
+
+metricas_HyperP_r%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_rl)
+
+rm(lambdas,Ridge,Ridge_CV) 
+
+
+##### Elastic Net #####
+set.seed(1234)
+EN_CV    <-caret::train( Train_lasso_reg_recipe, train_l, method = "glmnet", trControl = trainControl(method = "cv", number = 10, savePredictions = 'none',verboseIter=T,summaryFunction = False_rate_reg),metric="FR",maximaize= FALSE, tuneLength = 25)
+
+metricas_HyperP_en <- data.frame(Modelo = "Ridge", 
+                                 "lambda" = EN_CV[["bestTune"]][["lambda"]], 
+                                 "alpha" = EN_CV[["bestTune"]][["alpha"]],
+                                 "FNR" = mean(EN_CV[["results"]][["FNR"]]),
+                                 "FPR" = mean(EN_CV[["results"]][["FPR"]]),
+                                 "FR" = mean(EN_CV[["results"]][["FR"]])   )
+
+ stargazer(metricas_HyperP_en,type="text",summary=F,out = "views/ElasticNetReg.txt")
+En<-glmnet(x=Train_x, y=Train_y[,'Ingtotugarr'], alpha=EN_CV[["bestTune"]][["alpha"]], lambda= EN_CV[["bestTune"]][["lambda"]], standarize=F,intercept = F)
+Betas<-coef(En,  exact = FALSE,x=x, y=y)
+
+metricas_HyperP_en%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_en)
+
+rm(lambdas,EN_CV) 
+
+
+
+
+##### EN con variables recomendadas por literatura #####
+set.seed(1234)
+
+train_2<-train%>%
+  select(Ingtotugarr,JH_Edad2,JH_Edad,Pobre,Clase,Lp,P_o,JH_RSS_S,P5100,P50902,P50903,P50904,P50905,P50906,CotizaPension)
+
+
+Train_EN_li_reg_recipe<- recipe(Ingtotugarr ~ ., data = train_2)%>%
+  add_role(Lp, new_role = "performance var")%>%
+  add_role(Pobre, new_role = "performance var")
+
+
+EN_li_CV <-caret::train( Train_EN_li_reg_recipe, train, method = "glmnet", trControl = trainControl(method = "cv", number = 5, savePredictions = 'none',verboseIter=T,summaryFunction = False_rate_reg),metric="FR",maximaize= FALSE, tuneLength = 25)
+
+metricas_HyperP_enli <- data.frame(Modelo = "Ridge", 
+                                   "lambda" = EN_li_CV[["bestTune"]][["lambda"]], 
+                                   "alpha" = EN_li_CV[["bestTune"]][["alpha"]],
+                                   "FNR" = mean(EN_li_CV[["results"]][["FNR"]]),
+                                   "FPR" = mean(EN_li_CV[["results"]][["FPR"]]),
+                                   "FR" = mean(EN_li_CV[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_enli,type="text",summary=F,out = "views/ElasticNet_lit_Reg.txt")
+
+metricas_HyperP_enli%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_enli)
+
+rm(lambdas,EN_CV) 
+
+stopCluster(cl)
+
+
+
+
+
+
+
+########### PREDICCIÓN POBREZA ##########
+
+train_C<-as.data.frame(Train)
+train_C$Pobre=as.factor(train_C$Pobre)
+levels(train_C$Pobre)<-c('NoPobre','Pobre')
+
+Train_class_recipe<- recipe(Pobre ~ ., data = train_C)
+
+##### Logit #####
+set.seed(1234)
+logit<-glmnet(x=train_C,y=train_C[,'Pobre'],alpha=1,nlambda=200,standarize=F,family = "binomial")
+lambdas<-logit[["lambda"]]
+#LOGIT_CV<-caret::train(Train_clas_recipe, train_C ,method='glmnet',trCLontrol=trainControl(method='cv',number=10,savePredictions = 'final',summaryFunction = False_rate_class, allowParallel = TRUE,verboseIter = TRUE, classProbs=TRUE),metric='FR',maximaize= FALSE,tuneGrid = expand.grid(alpha = 1,lambda=lambdas))
+LOGIT_CV<-caret::train(Train_clas_recipe, train_C ,method='glmnet',trCLontrol=trainControl(method='cv',number=3,savePredictions = 'final', allowParallel = TRUE,verboseIter = TRUE, classProbs=TRUE),maximaize= FALSE,tuneGrid = expand.grid(alpha = 1,lambda=1),trace.it=T,type.logistic="modified.Newton",standardize=F)
+
+metricas_HyperP_Logit <- data.frame(Modelo = "Logit", 
+                                   "lambda" = LOGIT_CV[["bestTune"]][["lambda"]], 
+                                   "alpha" = LOGIT_CV[["bestTune"]][["alpha"]],
+                                   "FNR" = mean(LOGIT_CV[["results"]][["FNR"]]),
+                                   "FPR" = mean(LOGIT_CV[["results"]][["FPR"]]),
+                                   "FR" = mean(LOGIT_CV[["results"]][["FR"]])   )
+
+
+stargazer(metricas_HyperP_Logit,type="text",summary=F,out = "views/logit_reg.txt")
+
+metricas_HyperP_Logit%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+#rm(lambdas,logit,LOGIT_CV) 
+rm(lambdas,logit,LOGIT_CV) 
+
+
+
+##### Random Forest #####
+set.seed(1234)
+tunegrid <- expand.grid(max.depth=c(2,4,6,9), min.node.size = seq(10, 100, length.out = 10))
+control = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+randomForest<-caret::train(Train_class_recipe,train_C, method='ranger',metric='FR',tungeGrid=tunegrid,trControl=control)
+
+metricas_HyperP_RF <- data.frame(Modelo = "Random Forest Classification", 
+                                 "min node size " = randomForest[["bestTune"]][["min.node.size"]],
+                                 "mtry" = randomForest[["bestTune"]][["mtry"]],
+                                 "FNR" = mean(randomForest[["results"]][["FNR"]]),
+                                 "FPR" = mean(randomForest[["results"]][["FPR"]]),
+                                 "FR" = mean(randomForest[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_RF,type="text",summary=F,out = "views/RandomForest_Class.txt")
+
+randomForest
+
+metricas_HyperP_RF%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_RF)
+
+#rm(control,tunegrid,randomForest) 
+
+
+##### Ada Boost #####
+set.seed(1234)
+tunegrid <- expand.grid(nrounds=seq(10, 100, length.out = 10), tree_depth = c(2,4,6,9)  )
+control = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+AdaBoost<-caret::train(Train_class_recipe,train_C, method='AdaBag',metric='FR',tungeGrid=tunegrid,trControl=control,family = "binomial")
+
+metricas_HyperP_AB <- data.frame(Modelo = "Ada Boost Classification", 
+                                 "mfinal" = AdaBoost[["bestTune"]][["mfinal"]], 
+                                 "maxdepth" = AdaBoost[["bestTune"]][["maxdepth"]],
+                                 "FNR" = mean(AdaBoost[["results"]][["FNR"]]),
+                                 "FPR" = mean(AdaBoost[["results"]][["FPR"]]),
+                                 "FR" = mean(AdaBoost[["results"]][["FR"]])   )
+
+AdaBoost
+
+stargazer(metricas_HyperP_AB,type="text",summary=F,out = "views/AdaBoost_Class.txt")
+
+metricas_HyperP_AB%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_RF)
+
+#rm(control,tunegrid,randomForest) 
+
+
+##### XGBoost #####
+set.seed(1234)
+require("xgboost")
+xgbGrid = expand.grid(nrounds = c(250,500),max_depth = c(2,3,4,6),eta = c(0.01,0.3,0.5),gamma = c(0,1), min_child_weight = c(10, 25,50),colsample_bytree = c(0.7), subsample = c(0.6))
+xgb_trcontrol = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+xgb = caret::train(Train_class_recipe,train_C,trControl = xgb_trcontrol,tuneGrid = xgbGrid,method = "xgbTree",metric="FR",maximaize= FALSE)
+
+xgb
+
+metricas_HyperP_xgb <- data.frame(Modelo = "XGBoost", 
+                                  "nrounds" = xgb[["bestTune"]][["nrounds"]], 
+                                  "max_depth" = xgb[["bestTune"]][["max_depth"]],
+                                  "eta" = xgb[["bestTune"]][["eta"]],
+                                  "gamma" = xgb[["bestTune"]][["gamma"]],
+                                  "min_child_weight" = xgb[["bestTune"]][["min_child_weight"]],
+                                  "FNR" = mean(xgb[["results"]][["FNR"]]),
+                                  "FPR" = mean(xgb[["results"]][["FPR"]]),
+                                  "FR" = mean(xgb[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_xgb,type="text",summary=F,out = "views/XGB_Reg.txt")
+
+metricas_HyperP_xgb%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_xgb)
+
+#### con variables seleccionadas por literatura 
+Train_class_li<-train_C%>%
+  subset(select=c(Pobre,JH_Edad2,JH_Edad,Clase,Lp,P_o,JH_RSS_S,P5100,P50902,P50903,P50904,P50905,P50906,JH_CotizaPension))
+
+Train_class_li_recipe<- recipe(Pobre ~ ., data = Train_class_li)
+
+
+
+##### XGBoost lit #####
+xTrain_class_li<-Train_class_li[,-1]
+yTrain_class_li<-Train_class_li[,'Pobre']
+
+set.seed(1234)
+require("xgboost")
+xgbGrid = expand.grid(nrounds = c(250,500),max_depth = c(2,3,4,6),eta = c(0.01,0.3,0.5),gamma = c(0,1), min_child_weight = c(10, 25,50),colsample_bytree = c(0.7), subsample = c(0.6))
+xgb_trcontrol = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+xgb_lit = caret::train(x=xTrain_class_li,y=yTrain_class_li,trControl = xgb_trcontrol,tuneGrid = xgbGrid,method = "xgbTree",metric="FR",maximaize= FALSE)
+
+xgb_lit
+
+metricas_HyperP_xgb_lit <- data.frame(Modelo = "XGBoost", 
+                                  "nrounds" = xgb_lit[["bestTune"]][["nrounds"]], 
+                                  "max_depth" = xgb_lit[["bestTune"]][["max_depth"]],
+                                  "eta" = xgb_lit[["bestTune"]][["eta"]],
+                                  "gamma" = xgb_lit[["bestTune"]][["gamma"]],
+                                  "min_child_weight" = xgb_lit[["bestTune"]][["min_child_weight"]],
+                                  "FNR" = mean(xgb_lit[["results"]][["FNR"]]),
+                                  "FPR" = mean(xgb_lit[["results"]][["FPR"]]),
+                                  "FR" = mean(xgb_lit[["results"]][["FR"]])   )
+
+stargazer(metricas_HyperP_xgb_lit,type="text",summary=F,out = "views/XGB_Reg.txt")
+
+metricas_HyperP_xgb_lit%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_xgb)
+
+#rm(control,xgb,xgbGrid) 
+
+### ada boost lit ###
+set.seed(1234)
+tunegrid <- expand.grid(nrounds=seq(10, 100, length.out = 10), tree_depth = c(2,4,6,9)  )
+control = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+AdaBoost_li<-caret::train(x=xTrain_class_li,y=yTrain_class_li, method='AdaBag',metric='FR',tungeGrid=tunegrid,trControl=control,family = "binomial")
+
+metricas_HyperP_AB_li <- data.frame(Modelo = "Ada Boost Classification", 
+                                 "mfinal" = AdaBoost_li[["bestTune"]][["mfinal"]], 
+                                 "maxdepth" = AdaBoost_li[["bestTune"]][["maxdepth"]],
+                                 "FNR" = mean(AdaBoost_li[["results"]][["FNR"]]),
+                                 "FPR" = mean(AdaBoost_li[["results"]][["FPR"]]),
+                                 "FR" = mean(AdaBoost_li[["results"]][["FR"]])   )
+
+AdaBoost_li
+
+stargazer(metricas_HyperP_AB_li,type="text",summary=F,out = "views/AdaBoost_Class.txt")
+
+metricas_HyperP_AB_li%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+
+
+
+
+
+##### Regression Trees Bagging  #####
+set.seed(1234)
+Bag_trcontrol = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+Bag = caret::train(Pobre ~ .,Train_class_li,trControl = Bag_trcontrol,tuneGrid = expand.grid(vars=c(3,4,5,6)),method = "bag",metric="FR",maximaize= FALSE)
+
+metricas_HyperP_Bag <- data.frame(Modelo = "Bagged Trees Classification", 
+                                 "vars" = Bag[["bestTune"]][["vars"]], 
+                                 "FNR" = mean(Bag[["results"]][["FNR"]]),
+                                 "FPR" = mean(Bag[["results"]][["FPR"]]),
+                                 "FR" = mean(Bag[["results"]][["FR"]])   )
+
+Bag
+
+stargazer(metricas_HyperP_AB,type="text",summary=F,out = "views/AdaBoost_Class.txt")
+
+metricas_HyperP_AB%>%
+  kbl()%>%
+  kable_styling(full_width = T)
+
+metricas_HyperP<-rbind(metricas_HyperP,metricas_HyperP_RF)
+
+##### LGBM - GBM #### 
+
+
+# Using caret with the default grid to optimize tune parameters automatically
+# GBM Tuning parameters:
+# n.trees (# Boosting Iterations)
+# interaction.depth (Max Tree Depth)
+# shrinkage (Shrinkage)
+# n.minobsinnode (Min. Terminal Node Size)
+
+
+gbmGrid <-  expand.grid(interaction.depth = c(1, 3, 6),n.trees = (0:5)*10, shrinkage = seq(.005, .05,.005),n.minobsinnode = 10)
+
+control = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = FALSE,summaryFunction = False_rate_class)
+
+gbm.caret <- train(Sepal.Length ~ .
+                   , data=iris
+                   , distribution="gaussian"
+                   , method="gbm"
+                   , trControl=trainControl
+                   , verbose=FALSE
+                   #, tuneGrid=gbmGrid
+                   , metric=metric
+                   , bag.fraction=0.75
+)                  
+
+
+
+
+
+
+
+
+
+
+
+
+
+###################### REVISION DE CLASE DESBALANCEADA Y  AJUSTE ############################
+prop.table(table(train_hogares$Pobre))
+## Se aprecia que s�lo el 20% de la base es pobre
+
+
+#Se separa el sample de train en dos
+smp_size <- floor(0.7*nrow(train_hogares))
+set.seed(666)
+train_ind <- sample(1:nrow(train_hogares), size = smp_size)
+
+train <- train_hogares[train_ind, ]
+test <- train_hogares[-train_ind, ]
+
+
+
+##OverSample
+train_hogares$Pobre<- factor(train_hogares$Pobre)
+#Se debe poner el modelo que se usa
+train_h2 <- recipe(Pobre ~ P5000+P5010+SSalud+Trabajan+Estudiantes+CotizaPension+DeseaTrabajarMas+AyudasEco, data = train_hogares) %>%
+  themis::step_smote(Pobre, over_ratio = 1) %>%
+  prep() %>%
+  bake(new_data = NULL)
+#Corroboramos que ahora la mitad de la muestra sea pobre
+prop.table(table(train_h2$Pobre))
+#Aquí sabemos en qué porcentaje aumentó la muestra
+(nrow(train_h2)-nrow(train_hogares))/nrow(train_hogares)*100
+
+
+##UnderSample
+train_h3 <- recipe(Pobre ~ P5000+P5010+SSalud+Trabajan+Estudiantes+CotizaPension+DeseaTrabajarMas+AyudasEco, data = train_hogares) %>%
+  themis::step_downsample(Pobre) %>%
+  prep() %>%
+  bake(new_data = NULL)
+#Corroboramos que ahora la mitad de la muestra sea pobre
+prop.table(table(train_h3$Pobre))
+nrow(train_h3)
+nrow(train_hogares)
+
+##Optimizar umbral de decisión
+
+
+#Optimizador
+thresholds <- seq(0.1, 0.9, length.out = 100)
+opt_t<-dat.frame()
+for (t in thresholds) {
+  y_pred_t <- as.numeric(probs_outsample1 > t)
+  f1_t <- F1_Score(y_true = train_hogares$Pobre, y_pred = y_pred_t,
+                   positive = 1)
+  fila <- data.frame(t = t, F1 = f1_t)
+  opt_t <- bind_rows(opt_t, fila)
+}
+
+mejor_t <-  opt_t$t[which(opt_t$F1 == max(opt_t$F1, na.rm = T))]
