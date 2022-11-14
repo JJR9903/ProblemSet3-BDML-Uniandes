@@ -66,7 +66,7 @@ for (i in 1:length(zone)){
   osm_al= al%>%
     osmdata_sf()
   osm_al2<-osm_al$osm_points%>% 
-    select(osm_id,amenity) 
+    dplyr::select(osm_id,amenity) 
   assign(paste0("osm_al_",zone[i]),osm_al2)
 }  
 
@@ -86,7 +86,7 @@ for (i in 1:length(zone2)){
   osm_al= al%>%
     osmdata_sf()
   osm_al2<-osm_al$osm_points%>% 
-    select(osm_id,leisure) 
+    dplyr::select(osm_id,leisure) 
   assign(paste0("osm_al_",zone2[i]),osm_al2)
 }  
 
@@ -158,14 +158,12 @@ osm_al_bus_station<-osm_al_bus_station%>%
   mutate(amenity="bus_station")
 
 #Pet
-osm_al_dog_park<-osm_al_dog_park%>%
-  mutate(amenity="Pet")
 osm_al_veterinary<-osm_al_veterinary%>%
   mutate(amenity="Pet")
 
 #Zona verde
-osm_al_park<-osm_al_park%>%
-  mutate(amenity="park")
+#osm_al_park<-osm_al_park%>%
+  #mutate(amenity="park")
 osm_al_garden<-osm_al_garden%>%
   mutate(amenity="park")
 
@@ -178,18 +176,14 @@ osm_al_sports_centre<-osm_al_sports_centre%>%
   mutate(amenity="fitness")
 
 ####sacar barrios de Bogotá
-
-bog <- opq(bbox = getbb("Bogota Colombia")) %>%
-  add_osm_feature(key="boundary", value="administrative") %>% 
-  osmdata_sf()
-bog <- bog$osm_multipolygons %>% subset(admin_level==9)
+bog<-st_read(file.path("stores/Bogota/barrios_catastrales/barrios_catastrales.shp"))%>%
+  st_transform(crs = 4326)
 
 ####### Poner barrios a la base 
 osm_al_bank <- st_intersection(x = osm_al_bank , y = bog)
 osm_al_cafe <- st_intersection(x = osm_al_cafe , y = bog)
 osm_al_clinic <- st_intersection(x = osm_al_clinic , y = bog)
 osm_al_college <- st_intersection(x = osm_al_college , y = bog)
-osm_al_dog_park <- st_intersection(x = osm_al_park , y = bog)
 osm_al_fitness_centre <- st_intersection(x = osm_al_fitness_station , y = bog)
 osm_al_fitness_station <- st_intersection(x = osm_al_fitness_station , y = bog)
 osm_al_garden <- st_intersection(x = osm_al_garden , y = bog)
@@ -198,7 +192,7 @@ osm_al_kindergarten <- st_intersection(x = osm_al_kindergarten, y = bog)
 osm_al_library <- st_intersection(x = osm_al_library, y = bog)
 osm_al_marketplace <- st_intersection(x = osm_al_marketplace , y = bog)
 osm_al_nightclub <- st_intersection(x = osm_al_nightclub , y = bog)
-osm_al_park <- st_intersection(x = osm_al_park, y = bog)
+#osm_al_park <- st_intersection(x = osm_al_park, y = bog)
 osm_al_pharmacy <- st_intersection(x = osm_al_pharmacy, y = bog)
 osm_al_prison <- st_intersection(x = osm_al_prison, y = bog)
 osm_al_pub <- st_intersection(x = osm_al_pub, y = bog)
@@ -212,7 +206,6 @@ osm_al_university <- st_intersection(x = osm_al_university, y = bog)
 osm_al_veterinary <- st_intersection(x = osm_al_veterinary, y = bog)
 osm_al_waste_disposal<- st_intersection(x = osm_al_waste_disposal, y = bog)
 
-
 #Pegado de bases no eficiente pero util 
 
 B_Bogota<-bind_rows(osm_al_bank,osm_al_bar)
@@ -220,7 +213,6 @@ B_Bogota<-bind_rows(B_Bogota,osm_al_bus_station)
 B_Bogota<-bind_rows(B_Bogota,osm_al_cafe)
 B_Bogota<-bind_rows(B_Bogota,osm_al_clinic)
 B_Bogota<-bind_rows(B_Bogota,osm_al_college)
-B_Bogota<-bind_rows(B_Bogota,osm_al_dog_park)
 B_Bogota<-bind_rows(B_Bogota,osm_al_fitness_centre)
 B_Bogota<-bind_rows(B_Bogota,osm_al_fitness_station)
 B_Bogota<-bind_rows(B_Bogota,osm_al_garden)
@@ -229,7 +221,7 @@ B_Bogota<-bind_rows(B_Bogota,osm_al_kindergarten)
 B_Bogota<-bind_rows(B_Bogota,osm_al_library)
 B_Bogota<-bind_rows(B_Bogota,osm_al_marketplace)
 B_Bogota<-bind_rows(B_Bogota,osm_al_nightclub)
-B_Bogota<-bind_rows(B_Bogota,osm_al_park)
+#B_Bogota<-bind_rows(B_Bogota,osm_al_park)
 B_Bogota<-bind_rows(B_Bogota,osm_al_pharmacy)
 B_Bogota<-bind_rows(B_Bogota,osm_al_prison)
 B_Bogota<-bind_rows(B_Bogota,osm_al_pub)
@@ -247,36 +239,13 @@ B_Bogota<-bind_rows(B_Bogota,osm_al_waste_disposal)
 
 B_Bogota$city<-"bogota"
 
+#rename vars 
+rename (B_Bogota, CODIGO=BAR_ID)
+rename (B_Bogota, NOMBRE=NOMB_BARR)
+
 #Guardar base solo bogotá 
 
 saveRDS(B_Bogota,file=paste0(getwd(),"/stores/Bogotá.rds"))
-
-#######Sacar los "barrios" de cada cosa 
-#######Leer base y ponerle barrios 
-####### Ver lo de las distancias 
-
-
-rm(list=ls())
-
-dir_set <- function(){
-  if(Sys.info()["user"]=="JuanJose"){
-    setwd("/Users/JuanJose/Library/CloudStorage/OneDrive-UniversidaddelosAndes/Uniandes/9 Semestre - 1 PEG/Big Data/Problems Set/ProblemSet3-BDML-Uniandes")
-  }
-  else if(Sys.info()["user"]=="PC-PORTATIL"){
-    setwd("C:/Users/PC-PORTATIL/OneDrive/Documentos/GitHub/ProblemSet3-BDML-Uniandes")
-  }
-  else{
-    setwd("C:/Users/ja.ospinap/Downloads/ProblemSet3-BDML-Uniandes")
-  }
-}
-
-##### LIMPIAR Y REZAR PARA QUE NO SE PUTEE
-dir_set()
-library(pacman)
-p_load(rstudioapi, tidyverse, sf, rio, osmdata,leaflet, skimr)
-path<- dirname(getActiveDocumentContext()$path)
-setwd(path) 
-dir()
 
 ####MEDELLIN####
 city<- ("Medellín") 
@@ -291,7 +260,7 @@ for (i in 1:length(zone)){
   osm_al= al%>%
     osmdata_sf()
   osm_al2<-osm_al$osm_points%>% 
-    select(osm_id,amenity) 
+    dplyr::select(osm_id,amenity) 
   assign(paste0("osm_al_",zone[i]),osm_al2)
 }  
 
@@ -308,7 +277,7 @@ for (i in 1:length(zone2)){
   osm_al= al%>%
     osmdata_sf()
   osm_al2<-osm_al$osm_points%>% 
-    select(osm_id,leisure) 
+    dplyr::select(osm_id,leisure) 
   assign(paste0("osm_al_",zone2[i]),osm_al2)
 }  
 
@@ -351,27 +320,19 @@ osm_al_prison<-osm_al_prison%>%
   mutate(amenity="prison")
 osm_al_waste_disposal<-osm_al_waste_disposal%>%
   mutate(amenity="waste_disposal")
-
-
 #Swimming
 osm_al_swimming_pool<-osm_al_swimming_pool%>%
   mutate(amenity="swimming")
-
-
 osm_al_marketplace<-osm_al_marketplace%>%
   mutate(amenity="marketplace")
-
-
 osm_al_bus_station<-osm_al_bus_station%>%
   mutate(amenity="bus_station")
 #Pet
-osm_al_dog_park<-osm_al_dog_park%>%
-  mutate(amenity="Pet")
 osm_al_veterinary<-osm_al_veterinary%>%
   mutate(amenity="Pet")
 #Zona verde
-osm_al_park<-osm_al_park%>%
-  mutate(amenity="park")
+#osm_al_park<-osm_al_park%>%
+ # mutate(amenity="park")
 osm_al_garden<-osm_al_garden%>%
   mutate(amenity="park")
 #Fitness
@@ -381,19 +342,15 @@ osm_al_fitness_station<-osm_al_fitness_station%>%
   mutate(amenity="fitness")
 osm_al_sports_centre<-osm_al_sports_centre%>%
   mutate(amenity="fitness")
-
-#### sacar comunas
-med <- opq(bbox = getbb("Medellin, Colombia")) %>%
-  add_osm_feature(key="boundary", value="administrative") %>% 
-  osmdata_sf()
-med <- med$osm_multipolygons %>% subset(admin_level==8)
+#### sacar barrios
+med<-st_read(file.path("stores/Medellin/planeacion_gdb/planeacion_gdb.shp"))%>%
+  st_transform(crs = 4326)
 
 ####### Poner barrios a la base 
 osm_al_bank <- st_intersection(x = osm_al_bank , y = med)
 osm_al_cafe <- st_intersection(x = osm_al_cafe , y = med)
 osm_al_clinic <- st_intersection(x = osm_al_clinic , y = med)
 osm_al_college <- st_intersection(x = osm_al_college , y = med)
-osm_al_dog_park <- st_intersection(x = osm_al_park , y = med)
 osm_al_fitness_centre <- st_intersection(x = osm_al_fitness_station , y = med)
 osm_al_fitness_station <- st_intersection(x = osm_al_fitness_station , y = med)
 osm_al_garden <- st_intersection(x = osm_al_garden , y = med)
@@ -402,7 +359,6 @@ osm_al_kindergarten <- st_intersection(x = osm_al_kindergarten, y = med)
 osm_al_library <- st_intersection(x = osm_al_library, y = med)
 osm_al_marketplace <- st_intersection(x = osm_al_marketplace , y = med)
 osm_al_nightclub <- st_intersection(x = osm_al_nightclub , y = med)
-osm_al_park <- st_intersection(x = osm_al_park, y = med)
 osm_al_pharmacy <- st_intersection(x = osm_al_pharmacy, y = med)
 osm_al_prison <- st_intersection(x = osm_al_prison, y = med)
 osm_al_pub <- st_intersection(x = osm_al_pub, y = med)
@@ -423,7 +379,6 @@ B_Medellin<-bind_rows(B_Medellin,osm_al_bus_station)
 B_Medellin<-bind_rows(B_Medellin,osm_al_cafe)
 B_Medellin<-bind_rows(B_Medellin,osm_al_clinic)
 B_Medellin<-bind_rows(B_Medellin,osm_al_college)
-B_Medellin<-bind_rows(B_Medellin,osm_al_dog_park)
 B_Medellin<-bind_rows(B_Medellin,osm_al_fitness_centre)
 B_Medellin<-bind_rows(B_Medellin,osm_al_fitness_station)
 B_Medellin<-bind_rows(B_Medellin,osm_al_garden)
@@ -447,6 +402,10 @@ B_Medellin<-bind_rows(B_Medellin,osm_al_waste_disposal)
 B_Medellin$city<-"medellin"
 
 #rename(B_Medellin,  leisure=amenity)
+rename  (B_Medellin, Shape_Leng=SHAPE__Len)
+rename  (B_Medellin, Shape_Area=SHAPE__Are)
+rename  (B_Medellin,  NOMBRE=)
+
 
 saveRDS(B_Medellin,file=paste0(getwd(),"/stores/medellin.rds"))
 
@@ -460,40 +419,5 @@ B_MB<-bind_rows(B_Medellin,B_Bogota)
 
 saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_mb.rds"))
 
-#####SACAR MEDELLIN Y BOGOTÁ ####
-
-med <- opq(bbox=getbb("Medellin,Colombia")) %>%
-  add_osm_feature(key="boundary", value= "administrative")%>%
-  osmdat_sf()
-
-med<-med$osm_multipolygonos %>% 
-  subset(admin_level==8)
-
-
-bog <- opq(bbox=getbb("Bogota,Colombia")) %>%
-  add_osm_feature(key="boundary", value= "administrative")%>%
-  osmdat_sf()
-
-bog<-bog$osm_multipolygonos %>% 
-  subset(admin_level==9)
-
-B_MB_b <- st_intersection(x=B_MB, y= bog)
-saveRDS(B_MB_b,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
-
-##Pegue
-B_MB<-B_MB%>%
-  select(osm_id,name)
-
-
-       
-B_MB_m <- st_intersection(x=B_MB, y= med)
-saveRDS(B_MB_m,file=paste0(getwd(),"/stores/espacial_mb.rds")%>%
-          select()
-        
-        
-  
-#####NWECESITO AYUDA 
-
-##### PEGER  B_MB_b Y B_MB_m CON B_MB #####
-        
-                
+Base_espacial = subset (B_MB, select=c(osm_id, amenity,  OBJECTID, CODIGO,  NOMBRE, IDENTIFICA, LIMITECOMU, LIMITEMUNI, SUBTIPO_BA, SHAPE__Are, SHAPE__Len, leisure, city,  geometry))
+saveRDS(B_MB,file=paste0(getwd(),"/stores/espacial_esp.rds"))
