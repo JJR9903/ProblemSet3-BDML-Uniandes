@@ -31,10 +31,39 @@ n_cores<-detectCores()
 cl <- makePSOCKcluster(n_cores - 1) 
 registerDoParallel(cl)
 
+Test <- readRDS("stores/Test_Barrios_manzanas_texto_dist.rds")%>%
+  st_as_sf(coords=c("lon","lat"), crs=4326)%>%
+  as.data.frame()%>%
+  subset(select=-c(geometry,COD_MPIO,CODIGO,NOMBRE))%>%
+  mutate(V1=as.numeric(V1),V2=as.numeric(V2),V3=as.numeric(V3),V4=as.numeric(V4),V5=as.numeric(V5),
+         NearBank=as.numeric(NearBank),Nearpolice=as.numeric(Nearpolice),NearComida=as.numeric(NearComida),
+         NearES=as.numeric(NearES),Nearveterinary=as.numeric(Nearveterinary),Nearcommercial=as.numeric(Nearcommercial),
+         Nearsalud=as.numeric(Nearsalud),Nearprison=as.numeric(Nearprison),Nearnightclub=as.numeric(Nearnightclub),
+         Neareducacion=as.numeric(Neareducacion),Nearbus_station=as.numeric(Nearbus_station),Nearwaste_disposal=as.numeric(Nearwaste_disposal),
+         Nearsports=as.numeric(Nearsports),NearBusiness=as.numeric(NearBusiness),Nearhotel=as.numeric(Nearhotel),NearCBD=as.numeric(NearCBD),
+         Nearpark=as.numeric(Nearpark)
+         )
 
+Train <- readRDS("stores/Train_Barrios_manzanas_texto_dist.rds")%>%
+  st_as_sf(coords=c("lon","lat"), crs=4326)%>%
+  as.data.frame()%>%
+  subset(select=-c(geometry,COD_MPIO,CODIGO,NOMBRE))%>%
+  mutate(V1=as.numeric(V1),V2=as.numeric(V2),V3=as.numeric(V3),V4=as.numeric(V4),V5=as.numeric(V5),
+         NearBank=as.numeric(NearBank),Nearpolice=as.numeric(Nearpolice),NearComida=as.numeric(NearComida),
+         NearES=as.numeric(NearES),Nearveterinary=as.numeric(Nearveterinary),Nearcommercial=as.numeric(Nearcommercial),
+         Nearsalud=as.numeric(Nearsalud),Nearprison=as.numeric(Nearprison),Nearnightclub=as.numeric(Nearnightclub),
+         Neareducacion=as.numeric(Neareducacion),Nearbus_station=as.numeric(Nearbus_station),Nearwaste_disposal=as.numeric(Nearwaste_disposal),
+         Nearsports=as.numeric(Nearsports),NearBusiness=as.numeric(NearBusiness),Nearhotel=as.numeric(Nearhotel),NearCBD=as.numeric(NearCBD),
+         Nearpark=as.numeric(Nearpark)
+  )%>% 
+  mutate(obs = case_when(city=="Medellín"~(price-639246711)/(623222205),city=="Bogotá D.C"~(price-869755897)/(899818886)),
+              Apartamento= ifelse(property_type=="Apartamento",1,0),
+              Medellin= ifelse(city=="Medellín",1,0),
+              Bogota= ifelse(city=="Bogotá D.C",1,0))%>%
+  subset(select=-c(city,surface_covered,bedrooms))
+  
 Train <- readRDS("stores/Train_Barrios_texto.rds")%>%
-  st_as_sf(coords=c("lon","lat"), crs=4326) 
-
+  st_as_sf(coords=c("lon","lat"), crs=4326)
 Train<-as.data.frame(Train)%>%
   mutate(obs = case_when(city=="Medellín"~(price-639246711)/(623222205),city=="Bogotá D.C"~(price-869755897)/(899818886)),
          Apartamento= ifelse(property_type=="Apartamento",1,0),
@@ -102,6 +131,7 @@ set.seed(1234)
 tunegrid <- expand.grid(max.depth=c(2,4,6,9), min.node.size = seq(10, 100, length.out = 10))
 control = trainControl(method = "cv",number = 5,  allowParallel = TRUE,verboseIter = TRUE,returnData = TRUE,summaryFunction = CMSE)
 randomForest<-caret::train(Train_class_recipe,data=MiniT_Train, method='ranger',metric='MSE_RELU',maximize=FALSE,tungeGrid=tunegrid,trControl=control)
+
 
 
 ##### Ada Boost #####
